@@ -1,0 +1,48 @@
+[2026-03-27T15:38:52+0000] Test user setup, sudo, and claude binary inside the container
+CMD: docker run --rm -v "$HOME/.claude:/home/claude/.claude" -w /workspace claude-code-sandbox bash -c 'echo "=== whoami ===" && whoami && echo "=== sudo works ===" && sudo whoami && echo "=== claude binary ===" && which claude && echo "=== claude version ===" && claude --version 2>&1 && echo "=== CLAUDE_CONFIG_DIR ===" && echo $CLAUDE_CONFIG_DIR && echo "=== credentials mounted ===" && ls -la /home/claude/.claude/ 2>&1 | head -5'
+
+[2026-03-27T15:39:08+0000] Test Claude Code actually spawns and responds inside sandbox
+CMD: docker run --rm -v "$HOME/.claude:/home/claude/.claude" -v "/tmp:/workspace" -w /workspace -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}" claude-code-sandbox claude --dangerously-skip-permissions -p "say exactly 'SANDBOX_OK' and nothing else, then exit" --no-input 2>&1 | tail -20
+
+[2026-03-27T15:39:19+0000] Test Claude Code spawns with --print flag
+CMD: docker run --rm -v "$HOME/.claude:/home/claude/.claude" -v "/tmp:/workspace" -w /workspace -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}" claude-code-sandbox claude --dangerously-skip-permissions --print "say exactly SANDBOX_OK and nothing else" 2>&1 | tail -20
+
+[2026-03-27T15:39:25+0000] Test Claude Code spawns with -p flag
+CMD: docker run --rm -v "$HOME/.claude:/home/claude/.claude" -v "/tmp:/workspace" -w /workspace -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}" claude-code-sandbox claude --dangerously-skip-permissions -p "say exactly SANDBOX_OK and nothing else" 2>&1 | tail -30
+
+[2026-03-27T15:39:31+0000] Test Claude Code with explicit stderr redirect
+CMD: docker run --rm -v "$HOME/.claude:/home/claude/.claude" -v "/tmp:/workspace" -w /workspace -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}" claude-code-sandbox sh -c 'claude --dangerously-skip-permissions -p "say SANDBOX_OK" 2>&1; echo "EXIT_CODE=$?"'
+
+[2026-03-27T15:39:37+0000] Capture Claude output to file inside container
+CMD: docker run --rm -v "$HOME/.claude:/home/claude/.claude" -v "/tmp:/workspace" -w /workspace claude-code-sandbox sh -c 'claude --dangerously-skip-permissions -p "say SANDBOX_OK" > /tmp/out.txt 2>&1; cat /tmp/out.txt; echo "---EXIT=$?"'
+
+[2026-03-27T15:39:43+0000] Check claude help output for correct flags
+CMD: docker run --rm -v "$HOME/.claude:/home/claude/.claude" -v "/tmp:/workspace" -w /workspace claude-code-sandbox sh -c 'claude --version 2>&1; echo "---"; claude --help 2>&1 | head -20'
+
+[2026-03-27T15:39:49+0000] Test with --output-format text
+CMD: docker run --rm -v "$HOME/.claude:/home/claude/.claude" -v "/tmp:/workspace" -w /workspace claude-code-sandbox claude --dangerously-skip-permissions -p "respond with exactly: SANDBOX_OK" --output-format text 2>&1
+
+[2026-03-27T15:39:53+0000] Test with --output-format json
+CMD: docker run --rm -v "$HOME/.claude:/home/claude/.claude" -v "/tmp:/workspace" -w /workspace claude-code-sandbox claude --dangerously-skip-permissions -p "respond with exactly: SANDBOX_OK" --output-format json 2>&1
+
+[2026-03-27T15:40:00+0000] Capture stdout and stderr separately
+CMD: docker run --rm -v "$HOME/.claude:/home/claude/.claude" -v "/tmp:/workspace" -w /workspace claude-code-sandbox sh -c 'claude --dangerously-skip-permissions -p "respond with exactly: SANDBOX_OK" --output-format json 2>/tmp/err.log; echo "EXIT=$?"; echo "STDERR:"; cat /tmp/err.log'
+
+[2026-03-27T15:40:05+0000] Check if credentials are readable by claude user
+CMD: docker run --rm -v "$HOME/.claude:/home/claude/.claude" -w /workspace claude-code-sandbox sh -c 'cat /home/claude/.claude/.claude.json 2>&1 | head -3; echo "---"; ls -la /home/claude/.claude/.claude.json'
+
+[2026-03-27T15:40:25+0000] Make entrypoint executable
+CMD: chmod +x /home/michel/dev/personal/gcloud-infra/claude-sandbox/entrypoint.sh
+
+[2026-03-27T15:40:36+0000] Rebuild image with entrypoint
+CMD: docker build -t claude-code-sandbox . 2>&1 | tail -10
+
+[2026-03-27T15:40:50+0000] Test credentials are now readable after entrypoint
+CMD: docker run --rm -v "$HOME/.claude:/home/claude/.claude" -v "/tmp:/workspace" -w /workspace claude-code-sandbox sh -c 'echo "=== creds readable ===" && head -1 /home/claude/.claude/.claude.json && echo "=== whoami ===" && whoami && echo "=== sudo ===" && sudo whoami'
+
+[2026-03-27T15:40:56+0000] Test Claude Code responds with output
+CMD: docker run --rm -v "$HOME/.claude:/home/claude/.claude" -v "/tmp:/workspace" -w /workspace claude-code-sandbox claude --dangerously-skip-permissions -p "respond with exactly: SANDBOX_OK" --output-format json 2>&1
+
+[2026-03-27T15:43:36+0000] Create zip of claude-sandbox folder
+CMD: cd /home/michel/dev/personal/gcloud-infra && zip -r claude-sandbox.zip claude-sandbox/
+

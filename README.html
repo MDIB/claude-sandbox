@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<title>README.html</title>
+<meta http-equiv="Content-Type" content="application/xhtml+xml;charset=utf-8"/>
+<link rel="stylesheet" type="text/css" media="all" href="https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css"  />
+<link rel="stylesheet" type="text/css" media="all" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/github.min.css"  /><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><style> body { box-sizing: border-box; max-width: 740px; width: 100%; margin: 40px auto; padding: 0 10px; } </style><script id='MathJax-script' async src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'></script><script src='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/highlight.min.js'></script><script>document.addEventListener('DOMContentLoaded', () => { document.body.classList.add('markdown-body'); document.querySelectorAll('pre[lang] > code').forEach((code) => { code.classList.add(code.parentElement.lang); }); document.querySelectorAll('pre > code').forEach((code) => { hljs.highlightBlock(code); }); });</script>
+</head>
+
+<body>
+
+<h1 id="claude-sandbox">Claude Sandbox</h1>
+<p>A Docker-based sandbox for running <a
+href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a> in
+an isolated container. Mount any project directory, get a fully-equipped
+dev environment, and let Claude work without touching your host
+system.</p>
+<p>Works on <strong>Linux</strong> and <strong>macOS</strong> (Intel +
+Apple Silicon).</p>
+<h2 id="why">Why</h2>
+<p>Running Claude Code directly on your machine gives it broad access to
+your filesystem and tools. This sandbox:</p>
+<ul>
+<li><strong>Isolates Claude</strong> to a single project directory
+mounted as <code>/workspace</code></li>
+<li><strong>Protects credentials</strong> by mounting
+<code>~/.claude</code> read-only</li>
+<li><strong>Provides a reproducible environment</strong> with common dev
+tools pre-installed</li>
+<li><strong>Skips permissions prompts</strong>
+(<code>--dangerously-skip-permissions</code>) since the container itself
+is the security boundary</li>
+</ul>
+<h2 id="prerequisites">Prerequisites</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th></th>
+<th>Linux</th>
+<th>macOS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Docker</strong></td>
+<td><a href="https://docs.docker.com/engine/install/">Docker
+Engine</a></td>
+<td><a href="https://www.docker.com/products/docker-desktop/">Docker
+Desktop</a></td>
+</tr>
+<tr>
+<td><strong>Compose</strong></td>
+<td><code>docker-compose</code> (v1) or <code>docker compose</code>
+(v2)</td>
+<td>Included with Docker Desktop</td>
+</tr>
+<tr>
+<td><strong>Claude auth</strong></td>
+<td><code>~/.claude</code> directory</td>
+<td><code>~/.claude</code> directory</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>The scripts auto-detect whether you have <code>docker compose</code>
+(v2 plugin, default on macOS) or the standalone
+<code>docker-compose</code> (v1, common on Linux). Both work.</p>
+</blockquote>
+<h2 id="quick-start">Quick Start</h2>
+<h3 id="option-1-run-directly-recommended">Option 1: Run directly
+(recommended)</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Clone or unzip this folder, then:</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> claude-sandbox</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">chmod</span> +x run-claude.sh</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Run with current directory as workspace</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="ex">./run-claude.sh</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Or specify a project directory</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="ex">./run-claude.sh</span> ~/dev/my-project</span></code></pre></div>
+<p>The script auto-builds the Docker image on first run (~2-3 min).</p>
+<h3 id="option-2-install-globally">Option 2: Install globally</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> claude-sandbox</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">chmod</span> +x install-global.sh</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ex">./install-global.sh</span></span></code></pre></div>
+<p>This installs a <code>claude-sandbox</code> command to
+<code>~/.local/bin/</code>. Then from anywhere:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/dev/my-project</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ex">claude-sandbox</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Or specify a directory</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="ex">claude-sandbox</span> ~/dev/another-project</span></code></pre></div>
+<p>If <code>~/.local/bin</code> is not in your <code>PATH</code>, add
+this to your shell config:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add to ~/.zshrc (macOS default) or ~/.bashrc (Linux)</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">PATH</span><span class="op">=</span><span class="st">&quot;</span><span class="va">$PATH</span><span class="st">:</span><span class="va">$HOME</span><span class="st">/.local/bin&quot;</span></span></code></pre></div>
+<p>You can also install to a custom location:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">./install-global.sh</span> /usr/local/bin</span></code></pre></div>
+<h3 id="option-3-docker-compose">Option 3: docker compose</h3>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> claude-sandbox</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># v2 (macOS / newer Linux)</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose build</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose run <span class="at">--rm</span> claude-code claude</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co"># v1 (older Linux)</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="ex">docker-compose</span> build</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="ex">docker-compose</span> run <span class="at">--rm</span> claude-code claude</span></code></pre></div>
+<p>Note: this mounts the <code>claude-sandbox</code> directory itself as
+<code>/workspace</code>. Use <code>run-claude.sh</code> to mount
+arbitrary directories.</p>
+<h3 id="option-4-plain-docker">Option 4: Plain Docker</h3>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> build <span class="at">-t</span> claude-code-sandbox .</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> run <span class="at">-it</span> <span class="at">--rm</span> <span class="dt">\</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">-v</span> <span class="st">&quot;</span><span class="va">$(</span><span class="bu">pwd</span><span class="va">)</span><span class="st">:/workspace&quot;</span> <span class="dt">\</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">-v</span> <span class="st">&quot;</span><span class="va">$HOME</span><span class="st">/.claude:/home/claude/.claude:ro&quot;</span> <span class="dt">\</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">-w</span> /workspace <span class="dt">\</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  claude-code-sandbox claude</span></code></pre></div>
+<h2 id="whats-in-the-container">What’s in the Container</h2>
+<p><strong>Base:</strong> Alpine Linux + Node.js 20 (~398 MB,
+multi-arch: amd64 + arm64)</p>
+<table>
+<colgroup>
+<col style="width: 58%" />
+<col style="width: 41%" />
+</colgroup>
+<thead>
+<tr>
+<th>Category</th>
+<th>Tools</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Editors</strong></td>
+<td>vim, nano</td>
+</tr>
+<tr>
+<td><strong>Search</strong></td>
+<td>ripgrep (<code>rg</code>), fd, grep, jq, yq</td>
+</tr>
+<tr>
+<td><strong>Languages</strong></td>
+<td>Node.js 20, Python 3</td>
+</tr>
+<tr>
+<td><strong>Node tools</strong></td>
+<td>TypeScript, tsx, Prettier, ESLint, json-server</td>
+</tr>
+<tr>
+<td><strong>Python tools</strong></td>
+<td>IPython, pytest, black, ruff, mypy, requests, httpx, pandas,
+BeautifulSoup</td>
+</tr>
+<tr>
+<td><strong>Build</strong></td>
+<td>make, gcc/g++</td>
+</tr>
+<tr>
+<td><strong>Network</strong></td>
+<td>curl, wget, openssh-client, bind-tools</td>
+</tr>
+<tr>
+<td><strong>Database CLIs</strong></td>
+<td>sqlite, postgresql-client, redis</td>
+</tr>
+<tr>
+<td><strong>Misc</strong></td>
+<td>git, Docker CLI, tree, strace, lsof, patch, diffutils</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>The Alpine base image is multi-arch. Docker automatically pulls the
+correct image for your platform (amd64 on Intel, arm64 on Apple
+Silicon). No configuration needed.</p>
+</blockquote>
+<p>Claude can install additional tools at runtime:</p>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ex">apk</span> add <span class="at">--no-cache</span> <span class="op">&lt;</span>package<span class="op">&gt;</span>    <span class="co"># Alpine packages</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> install <span class="at">-g</span> <span class="op">&lt;</span>package<span class="op">&gt;</span>         <span class="co"># Node packages</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="op">&lt;</span>package<span class="op">&gt;</span>            <span class="co"># Python packages</span></span></code></pre></div>
+<h2 id="configuration">Configuration</h2>
+<h3 id="environment-variables">Environment Variables</h3>
+<table>
+<colgroup>
+<col style="width: 35%" />
+<col style="width: 32%" />
+<col style="width: 32%" />
+</colgroup>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Purpose</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ANTHROPIC_API_KEY</code></td>
+<td>API key (if not using <code>~/.claude</code> auth)</td>
+<td>empty</td>
+</tr>
+</tbody>
+</table>
+<p>Pass via environment:</p>
+<div class="sourceCode" id="cb9"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="va">ANTHROPIC_API_KEY</span><span class="op">=</span>sk-ant-... <span class="ex">./run-claude.sh</span> ~/my-project</span></code></pre></div>
+<h3 id="customizing-the-image">Customizing the Image</h3>
+<ul>
+<li><strong>Add system packages:</strong> Edit <code>Dockerfile</code>,
+add to the <code>apk add</code> block</li>
+<li><strong>Add Python packages:</strong> Edit <code>Dockerfile</code>,
+add to the <code>pip3 install</code> block</li>
+<li><strong>Add Node packages:</strong> Edit <code>Dockerfile</code>,
+add to the <code>npm install -g</code> block</li>
+<li><strong>Change base image:</strong> Edit the <code>FROM</code> line
+in <code>Dockerfile</code></li>
+</ul>
+<p>After changes, rebuild:</p>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># v2</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose build <span class="at">--no-cache</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co"># v1</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="ex">docker-compose</span> build <span class="at">--no-cache</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co"># or plain docker</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> build <span class="at">-t</span> claude-code-sandbox <span class="at">--no-cache</span> .</span></code></pre></div>
+<h3 id="mounting-extra-volumes">Mounting Extra Volumes</h3>
+<p>To give Claude access to SSH keys, additional configs, etc.:</p>
+<div class="sourceCode" id="cb11"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> run <span class="at">-it</span> <span class="at">--rm</span> <span class="dt">\</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">-v</span> <span class="st">&quot;</span><span class="va">$(</span><span class="bu">pwd</span><span class="va">)</span><span class="st">:/workspace&quot;</span> <span class="dt">\</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-v</span> <span class="st">&quot;</span><span class="va">$HOME</span><span class="st">/.claude:/home/claude/.claude:ro&quot;</span> <span class="dt">\</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">-v</span> <span class="st">&quot;</span><span class="va">$HOME</span><span class="st">/.ssh:/home/claude/.ssh:ro&quot;</span> <span class="dt">\</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">-v</span> <span class="st">&quot;</span><span class="va">$HOME</span><span class="st">/.gitconfig:/home/claude/.gitconfig:ro&quot;</span> <span class="dt">\</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">-w</span> /workspace <span class="dt">\</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  claude-code-sandbox claude</span></code></pre></div>
+<h3 id="docker-in-docker">Docker-in-Docker</h3>
+<p>To let Claude run Docker commands inside the container, mount the
+Docker socket. The socket path differs by platform:</p>
+<div class="sourceCode" id="cb12"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Linux</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> run <span class="at">-it</span> <span class="at">--rm</span> <span class="dt">\</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-v</span> /var/run/docker.sock:/var/run/docker.sock <span class="dt">\</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">-v</span> <span class="st">&quot;</span><span class="va">$(</span><span class="bu">pwd</span><span class="va">)</span><span class="st">:/workspace&quot;</span> <span class="dt">\</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">-v</span> <span class="st">&quot;</span><span class="va">$HOME</span><span class="st">/.claude:/home/claude/.claude:ro&quot;</span> <span class="dt">\</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  claude-code-sandbox claude</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="co"># macOS (Docker Desktop)</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> run <span class="at">-it</span> <span class="at">--rm</span> <span class="dt">\</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">-v</span> <span class="st">&quot;</span><span class="va">$HOME</span><span class="st">/.docker/run/docker.sock:/var/run/docker.sock&quot;</span> <span class="dt">\</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">-v</span> <span class="st">&quot;</span><span class="va">$(</span><span class="bu">pwd</span><span class="va">)</span><span class="st">:/workspace&quot;</span> <span class="dt">\</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">-v</span> <span class="st">&quot;</span><span class="va">$HOME</span><span class="st">/.claude:/home/claude/.claude:ro&quot;</span> <span class="dt">\</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>  claude-code-sandbox claude</span></code></pre></div>
+<p>Or uncomment the relevant line in
+<code>docker-compose.yml</code>.</p>
+<h3 id="changing-the-default-command">Changing the Default Command</h3>
+<p>The <code>run-claude.sh</code> script defaults to
+<code>claude --dangerously-skip-permissions</code>. To override:</p>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ex">./run-claude.sh</span> ~/my-project bash    <span class="co"># Get a shell instead</span></span></code></pre></div>
+<h2 id="files">Files</h2>
+<table>
+<colgroup>
+<col style="width: 40%" />
+<col style="width: 60%" />
+</colgroup>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Dockerfile</code></td>
+<td>Container image definition with all pre-installed tools</td>
+</tr>
+<tr>
+<td><code>docker-compose.yml</code></td>
+<td>Compose config for building and running the container</td>
+</tr>
+<tr>
+<td><code>run-claude.sh</code></td>
+<td>Main entry script – run from anywhere, mount any directory</td>
+</tr>
+<tr>
+<td><code>install-global.sh</code></td>
+<td>Installs <code>claude-sandbox</code> command to your PATH</td>
+</tr>
+<tr>
+<td><code>entrypoint.sh</code></td>
+<td>Fixes credential permissions at container start (runs via sudo
+before dropping to the <code>claude</code> user)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p><strong>Image not building:</strong></p>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose build <span class="at">--no-cache</span>   <span class="co"># or docker-compose</span></span></code></pre></div>
+<p><strong>Credentials not found:</strong> Ensure <code>~/.claude</code>
+exists on your host. Run <code>claude</code> natively once to
+authenticate.</p>
+<p><strong>Permission errors:</strong> The container runs as user
+<code>claude</code> (UID 1000) with passwordless sudo. If your host
+files have a different UID, you may need to adjust the UID in the
+<code>Dockerfile</code>.</p>
+<p><strong>Slow on macOS (file I/O):</strong> Docker Desktop’s file
+sharing can be slow with large <code>node_modules</code>. If you hit
+this, consider adding <code>:cached</code> to the workspace mount in
+<code>docker-compose.yml</code> or using Docker’s VirtioFS file sharing
+backend (Docker Desktop &gt; Settings &gt; General &gt; VirtioFS).</p>
+<p><strong>Apple Silicon – image build fails:</strong> The Alpine base
+image supports arm64 natively. If a specific <code>apk</code> or
+<code>pip</code> package fails on arm64, check if it has a pre-built
+wheel or needs a platform override:</p>
+<div class="sourceCode" id="cb15"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> build <span class="at">--platform</span> linux/amd64 <span class="at">-t</span> claude-code-sandbox .</span></code></pre></div>
+<p>This runs under Rosetta emulation (slower but compatible).</p>
+<p><strong>Network issues:</strong> Ensure Docker can reach
+<code>api.anthropic.com</code>:</p>
+<div class="sourceCode" id="cb16"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> run <span class="at">--rm</span> alpine wget <span class="at">-q</span> <span class="at">-O-</span> https://api.anthropic.com</span></code></pre></div>
+<p><strong>Rebuild from scratch:</strong></p>
+<div class="sourceCode" id="cb17"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> rmi claude-code-sandbox</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="ex">./run-claude.sh</span>  <span class="co"># Rebuilds automatically</span></span></code></pre></div>
+<h2 id="security-model">Security Model</h2>
+<ul>
+<li>The container is the security boundary – Claude has full access
+<em>inside</em> the container but cannot reach your host filesystem
+beyond the mounted volumes</li>
+<li>Claude runs as a non-root user (<code>claude</code>, UID 1000) with
+<strong>passwordless sudo</strong> – this gives it full privileges
+inside the container while avoiding the “refuses to run as root”
+issue</li>
+<li><code>--dangerously-skip-permissions</code> is safe here because the
+container limits blast radius</li>
+<li><code>~/.claude</code> is mounted read-only (credentials can’t be
+modified)</li>
+<li>Network access is enabled (required for the Claude API)</li>
+</ul>
+
+</body>
+</html>

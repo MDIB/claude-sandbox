@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  claude-code:
+    build: .
+    image: claude-code-sandbox
+    container_name: claude-code-sandbox
+    volumes:
+      # Mount current directory to /workspace (read-write)
+      - .:/workspace
+      # Mount Claude credentials from host (read-only staging path; entrypoint copies to writable dir)
+      - ~/.claude:/home/claude/.claude-host:ro
+      # Persist audit logs back to host
+      - ~/.claude/audit:/home/claude/.claude/audit
+      # Optional: mount Docker socket if you want Docker-in-Docker
+      # Linux:  /var/run/docker.sock:/var/run/docker.sock
+      # macOS:  $HOME/.docker/run/docker.sock:/var/run/docker.sock
+    working_dir: /workspace
+    network_mode: bridge
+    stdin_open: true
+    tty: true
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - HOST_PROJECT_NAME=${HOST_PROJECT_NAME:-claude-sandbox}
+    command: bash
