@@ -33,7 +33,7 @@ echo ""
 # ── Build ────────────────────────────────────────────────────────────────────
 
 echo "Building image..."
-(cd "$SCRIPT_DIR" && docker build -q -t $IMAGE_NAME . > /dev/null)
+(cd "$SCRIPT_DIR" && docker build -q --network=host -t $IMAGE_NAME . > /dev/null)
 echo ""
 
 # ── Test 1: UID matches host ────────────────────────────────────────────────

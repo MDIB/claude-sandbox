@@ -48,9 +48,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     util-linux \
     && rm -rf /var/lib/apt/lists/*
 
-# yq not in Debian repos — install binary
+# yq not in Debian repos — install binary (with retries for flaky Docker DNS)
 RUN ARCH=$(dpkg --print-architecture) && \
-    curl -fsSL "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}" -o /usr/local/bin/yq && \
+    curl -fsSL --retry 3 --retry-delay 5 "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}" -o /usr/local/bin/yq && \
     chmod +x /usr/local/bin/yq
 
 # Python packages (split into layers for better caching; generous timeout for large downloads)
@@ -79,13 +79,9 @@ RUN pip3 install --break-system-packages --timeout 300 --retries 3 \
 # Install claude-code globally
 RUN npm install -g @anthropic-ai/claude-code
 
-# Common npm dev tools
-RUN npm install -g \
-    typescript \
-    tsx \
-    prettier \
-    eslint \
-    json-server
+# Common npm dev tools (split to avoid OOM during build)
+RUN npm install -g typescript tsx
+RUN npm install -g prettier eslint json-server
 
 # Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
