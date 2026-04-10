@@ -1,25 +1,30 @@
-version: '3.8'
-
 services:
   claude-code:
     build: .
     image: claude-code-sandbox
     container_name: claude-code-sandbox
     volumes:
-      # Mount current directory to /workspace (read-write)
-      - .:/workspace
-      # Mount Claude credentials from host (read-only staging path; entrypoint copies to writable dir)
-      - ~/.claude:/home/claude/.claude-host:ro
-      # Persist audit logs back to host
-      - ~/.claude/audit:/home/claude/.claude/audit
-      # Optional: mount Docker socket if you want Docker-in-Docker
-      # Linux:  /var/run/docker.sock:/var/run/docker.sock
-      # macOS:  $HOME/.docker/run/docker.sock:/var/run/docker.sock
-    working_dir: /workspace
+      # Workspace at real host path (override with HOST_WORKSPACE_DIR)
+      - ${HOST_WORKSPACE_DIR:-.}:${HOST_WORKSPACE_DIR:-.}
+      # Claude config — sessions, memory, audit all shared with host (RW)
+      - ${HOST_HOME:-~}/.claude:${HOST_HOME:-~}/.claude
+      # Claude's SSH identity (read-only)
+      - ${HOME}/.config/claude/ssh:${HOST_HOME:-~}/.ssh:ro
+      # Claude's git config (read-only)
+      - ${HOME}/.config/claude/gitconfig:${HOST_HOME:-~}/.gitconfig:ro
+      # mempalace shared memory
+      - ${HOST_HOME:-~}/.mempalace:${HOST_HOME:-~}/.mempalace
+      # Optional: Docker socket for Docker-in-Docker
+      # - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: ${HOST_WORKSPACE_DIR:-.}
     network_mode: bridge
     stdin_open: true
     tty: true
     environment:
+      - HOST_USER=${HOST_USER:-claude}
+      - HOST_UID=${HOST_UID:-1000}
+      - HOST_GID=${HOST_GID:-1000}
+      - HOST_HOME=${HOST_HOME:-/home/claude}
+      - HOME=${HOST_HOME:-/home/claude}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - HOST_PROJECT_NAME=${HOST_PROJECT_NAME:-claude-sandbox}
     command: bash

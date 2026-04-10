@@ -1,0 +1,3 @@
+[submodule "claude-audit"]
+	path = claude-audit
+	url = git@github.com:MDIB/claude-audit.git

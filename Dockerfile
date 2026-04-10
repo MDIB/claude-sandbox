@@ -1,8 +1,9 @@
-# Use Alpine Linux with Node.js for a lightweight image
-FROM node:20-alpine
+# Generic image — no user baked in. Identity is created at runtime by entrypoint.
+# Using Debian slim (not Alpine) because mempalace → ChromaDB → onnxruntime needs glibc.
+FROM node:20-slim
 
 # Install essential tools and dependencies
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     zsh \
     git \
@@ -11,23 +12,18 @@ RUN apk add --no-cache \
     vim \
     nano \
     sudo \
-    shadow \
+    gosu \
     python3 \
-    py3-pip \
-    py3-virtualenv \
+    python3-pip \
+    python3-venv \
     make \
     g++ \
-    musl-dev \
-    linux-headers \
-    libffi-dev \
-    openssl-dev \
-    docker-cli \
+    docker.io \
     openssh-client \
     ca-certificates \
     ripgrep \
-    fd \
+    fd-find \
     jq \
-    yq \
     tree \
     less \
     patch \
@@ -40,19 +36,25 @@ RUN apk add --no-cache \
     tar \
     gzip \
     unzip \
-    xz \
-    sqlite \
-    postgresql16-client \
-    redis \
+    xz-utils \
+    sqlite3 \
+    postgresql-client \
+    redis-tools \
     procps \
     lsof \
     net-tools \
-    bind-tools \
+    dnsutils \
     strace \
-    && rm -rf /var/cache/apk/*
+    util-linux \
+    && rm -rf /var/lib/apt/lists/*
 
-# Python packages (globally, Alpine style)
-RUN pip3 install --break-system-packages \
+# yq not in Debian repos — install binary
+RUN ARCH=$(dpkg --print-architecture) && \
+    curl -fsSL "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}" -o /usr/local/bin/yq && \
+    chmod +x /usr/local/bin/yq
+
+# Python packages (split into layers for better caching; generous timeout for large downloads)
+RUN pip3 install --break-system-packages --timeout 120 --retries 3 \
     requests \
     httpx \
     pyyaml \
@@ -70,6 +72,10 @@ RUN pip3 install --break-system-packages \
     pandas \
     jinja2
 
+# mempalace + its heavy deps (chromadb, onnxruntime) in a separate layer
+RUN pip3 install --break-system-packages --timeout 300 --retries 3 \
+    mempalace
+
 # Install claude-code globally
 RUN npm install -g @anthropic-ai/claude-code
 
@@ -81,31 +87,13 @@ RUN npm install -g \
     eslint \
     json-server
 
-# Create non-root user with passwordless sudo
-# Claude Code refuses to run as root (UID 0), so we create a regular user
-# that has full sudo privileges without a password — same effective power as
-# root but Claude will actually spawn.
-RUN adduser -D -s /bin/bash -h /home/claude claude \
-    && echo "claude ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/claude \
-    && chmod 0440 /etc/sudoers.d/claude
-
 # Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Set up working directory
+# Default working directory (overridden by -w at runtime)
 WORKDIR /workspace
-RUN chown claude:claude /workspace
 
-# Switch to non-root user
-USER claude
-
-# Create writable config dir (host mount goes to .claude-host, entrypoint copies it here)
-RUN mkdir -p /home/claude/.claude && chown claude:claude /home/claude/.claude
-
-# Set environment variables
-ENV CLAUDE_CONFIG_DIR=/home/claude/.claude
-
-# Entrypoint fixes credential permissions then runs the command
+# Entrypoint creates the user at runtime and drops privileges via gosu
 ENTRYPOINT ["entrypoint.sh"]
 CMD ["bash"]
