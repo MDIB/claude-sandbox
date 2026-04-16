@@ -83,6 +83,9 @@ RUN npm install -g @anthropic-ai/claude-code
 RUN npm install -g typescript tsx
 RUN npm install -g prettier eslint json-server
 
+# Copy audit hook template (entrypoint installs it on first run)
+COPY claude-audit/scripts/audit-bash.sh /opt/claude-audit/audit-bash.sh
+
 # Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

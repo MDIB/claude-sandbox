@@ -36,5 +36,77 @@ chmod 0440 /etc/sudoers.d/"$HOST_USER"
 mkdir -p "$HOST_HOME"
 chown "$HOST_UID:$HOST_GID" "$HOST_HOME"
 
+# ── Ensure ~/.claude files are accessible ────────────────────────────────
+# The bind mount preserves host UIDs, but files created by previous container
+# runs (or by root during setup below) need correct ownership.
+CLAUDE_DIR="$HOST_HOME/.claude"
+if [ -d "$CLAUDE_DIR" ]; then
+    chown "$HOST_UID:$HOST_GID" "$CLAUDE_DIR"
+    for f in "$CLAUDE_DIR/.credentials.json" \
+             "$CLAUDE_DIR/.claude.json" \
+             "$CLAUDE_DIR/settings.json" \
+             "$CLAUDE_DIR/settings.local.json"; do
+        [ -f "$f" ] && chown "$HOST_UID:$HOST_GID" "$f"
+    done
+    [ -d "$CLAUDE_DIR/hooks" ] && chown -R "$HOST_UID:$HOST_GID" "$CLAUDE_DIR/hooks"
+fi
+
+# ── Audit hook auto-setup ────────────────────────────────────────────────
+# Install the audit-bash.sh hook and register it in settings.json.
+# Idempotent — skips if already present.
+HOOKS_DIR="$CLAUDE_DIR/hooks"
+HOOK_DST="$HOOKS_DIR/audit-bash.sh"
+SETTINGS="$CLAUDE_DIR/settings.json"
+HOOK_CMD="bash $HOOK_DST"
+
+if [ ! -f "$HOOK_DST" ] && [ -f /opt/claude-audit/audit-bash.sh ]; then
+    mkdir -p "$HOOKS_DIR"
+    # Substitute __AUDIT_DIR__ with $HOME/.claude/audit (shell-expanded at hook runtime)
+    sed 's|__AUDIT_DIR__|$HOME/.claude/audit|g' /opt/claude-audit/audit-bash.sh > "$HOOK_DST"
+    chmod 755 "$HOOK_DST"
+    chown -R "$HOST_UID:$HOST_GID" "$HOOKS_DIR"
+fi
+
+if [ -f "$HOOK_DST" ]; then
+    if [ ! -f "$SETTINGS" ]; then
+        # Create minimal settings.json with the audit hook
+        mkdir -p "$CLAUDE_DIR"
+        cat > "$SETTINGS" <<SETTINGSEOF
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOOK_CMD"
+          }
+        ]
+      }
+    ]
+  }
+}
+SETTINGSEOF
+        chmod 600 "$SETTINGS"
+        chown "$HOST_UID:$HOST_GID" "$SETTINGS"
+    elif ! grep -q "audit-bash.sh" "$SETTINGS" 2>/dev/null; then
+        # Merge the audit hook into existing settings.json via jq
+        jq --arg cmd "$HOOK_CMD" '
+          .hooks //= {} |
+          .hooks.PreToolUse //= [] |
+          if (.hooks.PreToolUse | map(select(.matcher == "Bash")) | length) == 0
+          then .hooks.PreToolUse = [{"matcher": "Bash", "hooks": [{"type": "command", "command": $cmd}]}] + .hooks.PreToolUse
+          else .hooks.PreToolUse = [.hooks.PreToolUse[] |
+            if .matcher == "Bash"
+            then .hooks = [{"type": "command", "command": $cmd}] + .hooks
+            else . end]
+          end
+        ' "$SETTINGS" > "${SETTINGS}.tmp" && mv "${SETTINGS}.tmp" "$SETTINGS"
+        chmod 600 "$SETTINGS"
+        chown "$HOST_UID:$HOST_GID" "$SETTINGS"
+    fi
+fi
+
 # Drop privileges permanently and exec the command
 exec gosu "$HOST_USER" "$@"
