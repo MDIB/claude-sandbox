@@ -14,6 +14,8 @@ services:
       - ${HOME}/.config/claude/gitconfig:${HOST_HOME:-~}/.gitconfig:ro
       # mempalace shared memory
       - ${HOST_HOME:-~}/.mempalace:${HOST_HOME:-~}/.mempalace
+      # Optional: MCP server directories (mount at same path for settings.json compatibility)
+      # - /home/user/dev/mcp-ssh-manager:/home/user/dev/mcp-ssh-manager:ro
       # Optional: Docker socket for Docker-in-Docker
       # - /var/run/docker.sock:/var/run/docker.sock
     working_dir: ${HOST_WORKSPACE_DIR:-.}

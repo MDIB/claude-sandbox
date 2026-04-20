@@ -183,6 +183,140 @@ else
     fail "Invalid UID not caught" "$INVALID_CHECK"
 fi
 
+# ── Test 12: Audit hook template bundled in image ───────────────────────────
+
+echo "Test 12: Audit hook template bundled in image"
+AUDIT_TPL=$(run cat /opt/claude-audit/audit-bash.sh 2>&1 | head -1)
+if [ "$AUDIT_TPL" = "#!/bin/bash" ]; then
+    pass "audit-bash.sh in /opt/claude-audit/"
+else
+    fail "audit template missing" "$AUDIT_TPL"
+fi
+
+# ── Test 13: Audit hook auto-installed to ~/.claude/hooks ───────────────────
+
+echo "Test 13: Audit hook auto-installed on first run"
+TMPDIR_HOOK=$(mktemp -d)
+# Run with a fresh ~/.claude (empty tmpdir) so entrypoint installs the hook
+HOOK_CHECK=$(docker run --rm \
+    -e "HOST_USER=$(whoami)" \
+    -e "HOST_UID=$(id -u)" \
+    -e "HOST_GID=$(id -g)" \
+    -e "HOST_HOME=$HOME" \
+    -e "HOME=$HOME" \
+    -v "$TMPDIR_HOOK:$HOME/.claude" \
+    $IMAGE_NAME \
+    cat "$HOME/.claude/hooks/audit-bash.sh" 2>&1 | grep -c 'AUDIT_DIR')
+if [ "$HOOK_CHECK" -ge 1 ]; then
+    pass "audit-bash.sh auto-installed"
+else
+    fail "audit hook not installed" "$HOOK_CHECK"
+fi
+rm -rf "$TMPDIR_HOOK"
+
+# ── Test 14: settings.json created with audit hook on fresh start ───────────
+
+echo "Test 14: settings.json created with audit hook on fresh start"
+TMPDIR_SETTINGS=$(mktemp -d)
+docker run --rm \
+    -e "HOST_USER=$(whoami)" \
+    -e "HOST_UID=$(id -u)" \
+    -e "HOST_GID=$(id -g)" \
+    -e "HOST_HOME=$HOME" \
+    -e "HOME=$HOME" \
+    -v "$TMPDIR_SETTINGS:$HOME/.claude" \
+    $IMAGE_NAME \
+    true 2>&1
+SETTINGS_CHECK=$(cat "$TMPDIR_SETTINGS/settings.json" 2>/dev/null | jq -r '.hooks.PreToolUse[0].hooks[0].command // empty' 2>/dev/null)
+if echo "$SETTINGS_CHECK" | grep -q "audit-bash.sh"; then
+    pass "settings.json has audit hook"
+else
+    fail "settings.json missing audit hook" "$SETTINGS_CHECK"
+fi
+rm -rf "$TMPDIR_SETTINGS"
+
+# ── Test 15: Audit hook idempotent — existing settings.json preserved ───────
+
+echo "Test 15: Audit hook idempotent on existing settings.json"
+TMPDIR_IDEM=$(mktemp -d)
+mkdir -p "$TMPDIR_IDEM/hooks"
+# Pre-populate settings.json with existing content + the audit hook
+cat > "$TMPDIR_IDEM/settings.json" <<'JSONEOF'
+{
+  "model": "Opus",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/test/.claude/hooks/audit-bash.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+JSONEOF
+# Pre-create the hook file so it's not re-installed
+cp /dev/null "$TMPDIR_IDEM/hooks/audit-bash.sh"
+echo '#!/bin/bash' > "$TMPDIR_IDEM/hooks/audit-bash.sh"
+echo 'AUDIT_DIR="existing"' >> "$TMPDIR_IDEM/hooks/audit-bash.sh"
+
+docker run --rm \
+    -e "HOST_USER=$(whoami)" \
+    -e "HOST_UID=$(id -u)" \
+    -e "HOST_GID=$(id -g)" \
+    -e "HOST_HOME=$HOME" \
+    -e "HOME=$HOME" \
+    -v "$TMPDIR_IDEM:$HOME/.claude" \
+    $IMAGE_NAME \
+    true 2>&1
+# Model setting should be preserved, hook should not be duplicated
+MODEL_CHECK=$(cat "$TMPDIR_IDEM/settings.json" 2>/dev/null | jq -r '.model // empty' 2>/dev/null)
+HOOK_COUNT=$(cat "$TMPDIR_IDEM/settings.json" 2>/dev/null | jq '[.hooks.PreToolUse[].hooks[]? | select(.command | test("audit-bash"))] | length' 2>/dev/null)
+if [ "$MODEL_CHECK" = "Opus" ] && [ "$HOOK_COUNT" = "1" ]; then
+    pass "Existing settings preserved, no duplicate hook"
+else
+    fail "Idempotency" "model=$MODEL_CHECK, hook_count=$HOOK_COUNT"
+fi
+rm -rf "$TMPDIR_IDEM"
+
+# ── Test 16: ~/.claude file ownership correct after entrypoint ──────────────
+
+echo "Test 16: ~/.claude file ownership correct after entrypoint"
+TMPDIR_PERM=$(mktemp -d)
+# Create files with root ownership to simulate stale permissions
+sudo chown root:root "$TMPDIR_PERM" 2>/dev/null || true
+docker run --rm \
+    -e "HOST_USER=$(whoami)" \
+    -e "HOST_UID=$(id -u)" \
+    -e "HOST_GID=$(id -g)" \
+    -e "HOST_HOME=$HOME" \
+    -e "HOME=$HOME" \
+    -v "$TMPDIR_PERM:$HOME/.claude" \
+    $IMAGE_NAME \
+    stat -c '%u' "$HOME/.claude" 2>&1
+DIR_OWNER=$(stat -c '%u' "$TMPDIR_PERM" 2>/dev/null)
+SETTINGS_OWNER=$(stat -c '%u' "$TMPDIR_PERM/settings.json" 2>/dev/null)
+if [ "$DIR_OWNER" = "$(id -u)" ] && [ "$SETTINGS_OWNER" = "$(id -u)" ]; then
+    pass "Ownership fixed to UID=$(id -u)"
+else
+    fail "Ownership" "dir=$DIR_OWNER, settings=$SETTINGS_OWNER"
+fi
+rm -rf "$TMPDIR_PERM"
+
+# ── Test 17: .gitignore excludes claude-audit.log ───────────────────────────
+
+echo "Test 17: .gitignore excludes claude-audit.log"
+GITIGNORE_CHECK=$(git -C "$SCRIPT_DIR" check-ignore claude-audit.log 2>/dev/null)
+if [ "$GITIGNORE_CHECK" = "claude-audit.log" ]; then
+    pass "claude-audit.log is gitignored"
+else
+    fail ".gitignore" "claude-audit.log not ignored"
+fi
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""

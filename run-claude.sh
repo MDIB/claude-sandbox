@@ -172,6 +172,49 @@ else
     VOLUMES+=(-v "$HOME/.mempalace:$HOME/.mempalace")
 fi
 
+# ── Auto-mount MCP server directories from settings.json ────────────────
+
+CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+if [ -f "$CLAUDE_SETTINGS" ] && command -v jq &>/dev/null; then
+    MOUNTED_MCP_DIRS=()
+    while IFS= read -r mcp_path; do
+        [ -z "$mcp_path" ] && continue
+        [ ! -e "$mcp_path" ] && continue
+        mcp_dir="$(dirname "$mcp_path")"
+        # Walk up to find project root (package.json or .git)
+        while [ "$mcp_dir" != "/" ]; do
+            if [ -f "$mcp_dir/package.json" ] || [ -d "$mcp_dir/.git" ]; then
+                break
+            fi
+            mcp_dir="$(dirname "$mcp_dir")"
+        done
+        if [ "$mcp_dir" != "/" ] && [ -d "$mcp_dir" ]; then
+            # Deduplicate
+            already_mounted=false
+            for mounted in "${MOUNTED_MCP_DIRS[@]}"; do
+                [ "$mounted" = "$mcp_dir" ] && already_mounted=true && break
+            done
+            if [ "$already_mounted" = false ]; then
+                VOLUMES+=(-v "$mcp_dir:$mcp_dir:ro")
+                MOUNTED_MCP_DIRS+=("$mcp_dir")
+                log_info "Auto-mounting MCP server: $mcp_dir"
+            fi
+        fi
+    done < <(jq -r '.mcpServers // {} | to_entries[] | .value.args[]? // empty' "$CLAUDE_SETTINGS" 2>/dev/null | grep "^/")
+fi
+
+# ── Extra volume mounts (manual overrides) ──────────────────────────────
+
+EXTRA_MOUNTS_FILE="$HOME/.config/claude/extra-mounts.conf"
+if [ -f "$EXTRA_MOUNTS_FILE" ]; then
+    while IFS= read -r line; do
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line// }" ]] && continue
+        VOLUMES+=(-v "$line")
+        log_info "Extra mount: $line"
+    done < "$EXTRA_MOUNTS_FILE"
+fi
+
 # SSH agent forwarding
 SSH_AGENT_ARGS=()
 if [ -n "$SSH_AUTH_SOCK" ]; then
